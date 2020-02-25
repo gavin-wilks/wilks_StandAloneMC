@@ -305,8 +305,7 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
             double QMCtotal;
             double CHi2fit;
             double rangeMC = 200.0;  //simulation of track
-            int iconvar = 0;
-	    int MCmode = 1;
+           
             double x0MCv = x0MC;
             double y0MCv = y0MC;
             double z0MCv = z0MC;
@@ -315,13 +314,16 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
             double thetaMCv = thetaMC;
 	    double sigmaq = 0.2; // defined as the fraction of sum Qsim+Qtrack
             double sigmaz = 4.0; // defined as deviation of the center of gravity in mm modified from 5.4 on june 10 wm
-            int imc1 = 0;
-            int imc1max = 10;
-            int imc2 = 0;
-            int imc2max = 50;
-            int icontrol = 1;
+            
+	    // parameters for controlling steps and mode of MC Minimization
+	    int iconvar = 0;
+	    int MCmode = 1;    // MC mode 1 for initialization
+            int iconvarmax = 10;  // controls how small step size becomes in MCvar
+            int MCsteps = 50;  // controls how many steps for MC for a given step size (iconvar)
 
-            MCvar(parameter, icontrol, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv); // for initialisation
+
+	    /********************** MC Initialization ********************************/
+              MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv); 
 
               std::cout<<std::endl;
               std::cout<<cGREEN<<" X : "<<x0MC<<" cm  - Y : "<<y0MC<<" cm - Z : "<<z0MC<<" cm "<<std::endl;
@@ -332,30 +334,30 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
               std::cout<<" Azimutal Angle : "<<phiMC*180.0/TMath::Pi()<<" deg "<<std::endl;
               std::cout<<" Length of the experimental data : "<<parameter[7]<<cNORMAL<<std::endl;
 
+	/////////////////////////////////////////////////////////////////////////////////////////////////
               //thetaMCv=thetaMCv*0.8 ; //for test
               //x0MCv=x0MCv + 10.;
               /*std::cout << "  initiatialisation "<< std::endl;
               std::cout << "ouside mc icon " <<iconvar<< std::endl;
-              std::cout << "outide mc mode " <<icontrol<< std::endl;
+              std::cout << "outide mc mode " <<MCmode<< std::endl;
               std::cout << " out mc x0 " <<x0MCv<< " x0  "<<x0MC << std::endl;
               std::cout << " out mc y " <<y0MCv<< std::endl;
               std::cout << "outide z" <<z0MCv<< std::endl;
               std::cout << " out side mc a " <<thetaMCv<< std::endl;
               std::cout << " outideside mc  phi " << phiMCv<<"  "<<rangeMCv<< std::endl;*/
+        /////////////////////////////////////////////////////////////////////////////////////////////////
 
             double Chimin=10000000.;
+	    
+	    /**************************** MC Minimization *********************************/		
+	
+            for (int iconvar=0;iconvar<iconvarmax;iconvar++){ // progressively reduces the step size in MCvar
 
-
-
-
-            for (int imc1=0;imc1<imc1max;imc1++){
-		iconvar = imc1; // controls the step of MC in MCvar
-
-                for (imc2=0;imc2<imc2max;imc2++){
-                    icontrol=2;
+                for (int iMC=0;iMC<MCsteps;iMC++){
+                    MCmode=2;
 
                  // for MC variation with same starting value as before
-                    MCvar(parameter, icontrol, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv); 
+                    MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv); 
 
                     QMCsim(parameter, Qsim, zsimq, QMCtotal, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv, e0sm, PadCoord, fPadPlane);
                    //std::cout<<cRED<<" After QMCsim x "<<x0MCv<<" y "<< y0MCv<< " z "<< z0MCv<<" theta "<< thetaMCv<<" phi "<< phiMCv<<" B " <<Bminv<<" dens "<< densv<< " e0sm "<<e0sm<<" ro "<<rominv<<cNORMAL;
@@ -363,12 +365,13 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
 
                     if (CHi2fit<Chimin){
                        Chimin=CHi2fit;
-                       icontrol=3;
-                       MCvar(parameter, icontrol, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv);
+                       MCmode=3;
+                       MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv);
                     }
-
-                } // imc2 loop
-            } // imc1 loop
+                } // iMC loop
+            } // iconvar loop
+            
+	    /*******************************************************************************/
 
             // fPadPlane->Draw("zcol");
 
@@ -429,15 +432,16 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
                 x0MC = parameter[0]/10.0; // [cm]
                 y0MC = parameter[1]/10.0; // [cm]
                 
-		// I should probably just combine the two if statements to be little more efficient
-                if(kIsZGeoVertex) z0MC = parameter[2]/10.0 + (fZk/10.0 - fEntZ0/10.0); // non-tilted detector
-                else z0MC = fZk/10.0 - (fEntTB-parameter[3])*dzstep;	               // tilted detector
-                
+                if(kIsZGeoVertex){ 					 // non-tilted detector
+		    z0MC  = parameter[2]/10.0 + (fZk/10.0 - fEntZ0/10.0); 
+		    phiMC = parameter[4];	
+                }else{ 							 // tilted detector
+	            z0MC = fZk/10.0 - (fEntTB-parameter[3])*dzstep;	               
+                    phiMC = TMath::Pi()-parameter[4]-fThetaPad;
+   	        }
+
                 thetaMC = parameter[6];
                 romin = parameter[5];
-
-                if(kIsZGeoVertex) phiMC = parameter[4];	         // non-tilted detector
-                else phiMC = TMath::Pi()-parameter[4]-fThetaPad; // tilted detector
 
                 //Double_t bro=parameter[5]*Bmin/1000.0;// !Tm*/
 
@@ -453,10 +457,9 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
             
 	    } // if MCmode ==1
 
-	    else if(MCmode == 2){ // MC variation
-             
-	     // start of MC
-                double factstep = std::pow(1.4, -iconvar); // (TMath::Power(1.4,i));
+	    else if(MCmode == 2){ // MC variation (MC begins)
+	     
+                double factstep = std::pow(1.4, -iconvar); // weight of MC step;
 
                 double step1 = fStep_par[0]*factstep; // theta in degrees
                 double step2 = fStep_par[1]*factstep; // phi in degrees
@@ -466,7 +469,7 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
                 double step6 = fStep_par[5]*factstep; // z0 [cm]
                 double step7 = fStep_par[6]*factstep; // B
                 double step8 = fStep_par[7]*factstep; // Density
-                double step9 = fStep_par[8]*factstep; // to be used somewhere*/
+                double step9 = fStep_par[8]*factstep; // to be used somewhere
 
                 thetaMCv = thetaMC + step1*(0.5-gRandom->Rndm())*0.01745;
                 phiMCv = phiMC + step2*(0.5-gRandom->Rndm())*0.01745;
@@ -488,7 +491,7 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
 
             } // else if MCmode == 2
 
-            else if(MCmode == 3){  // lower chi2 hence new starting condition
+            else if(MCmode == 3){  // lower chi squared, save MCv values as new starting values
                 
 		thetaMC = thetaMCv;
 	        phiMC = phiMCv;
@@ -543,7 +546,8 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
    // Parameters                  
       Double_t mev_m   = 931.49432; // 1 amu = 931.49432 MeV/c^2
       Double_t chi2min = 1E10;
-    /*  Double_t thetaPad     = fThetaPad;
+
+    /*Double_t thetaPad     = fThetaPad;
       Double_t thetaLorentz = fThetaLorentz;
       Double_t thetaRot     = fThetaRot;
       Double_t thetaTilt    = fTiltAng;
@@ -552,8 +556,8 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       thetaPad     = 0.0;
       thetaLorentz = 0.0;
       thetaRot     = 0.0;
-      thetaTilt    = 0.0;	
-     */
+      thetaTilt    = 0.0;  */
+
    // partial integral results in small steps
       double xpad[10240]={0}; 
       double ypad[10240]={0};
@@ -577,26 +581,27 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       Double_t e0 = 0.0; // initializing energy
    
    
-   //**************************************************************************************************************************
-		     
+   //**************************************************************************************************************************		     
    // Set initial energy (e0) depending on presence of B-field
+
       if(B>0){
-         GetEnergy(nucleons,protons,brotheta,e0sm); // [MeV/nucleon]
-         e0 = e0sm*nucleons;                        // initial energy [MeV]
-      }
-      else if(B==0){
-        if(fRtoE_func_array.size()>0){
-        std::function<Double_t(Double_t,std::vector<Double_t>&)> RtoEFunc = fRtoE_func_array.at(0);
-        // NB: For the case of B=0 the Range of the particle will be passed through romin variable (parameter[5])
-        // NB: Range to function conversion uses 760 torr of pressure for the mixture
-        //     The energy must be scaled.
-        e0sm = RtoEFunc(romin*(fPressure/760.0), fRtoEPar_array[0]);
-        e0   = e0sm;
-        }else std::cout<<cYELLOW<<" ATMCQMinimization::QMCsim - Warning! No Range-to-Energy function found."<<cNORMAL<<std::endl;
+          GetEnergy(nucleons,protons,brotheta,e0sm); // [MeV/nucleon]
+          e0 = e0sm*nucleons;                        // initial energy [MeV]
+      }else if(B==0){
+          if(fRtoE_func_array.size()>0){
+          std::function<Double_t(Double_t,std::vector<Double_t>&)> RtoEFunc = fRtoE_func_array.at(0);
+
+          // NB: For the case of B=0 the Range of the particle will be passed through romin variable (parameter[5])
+          // NB: Range to function conversion uses 760 torr of pressure for the mixture
+          //     The energy must be scaled.
+
+          e0sm = RtoEFunc(romin*(fPressure/760.0), fRtoEPar_array[0]);
+          e0   = e0sm;
+
+          }else{std::cout<<cYELLOW<<" ATMCQMinimization::QMCsim - Warning! No Range-to-Energy function found."<<cNORMAL<<std::endl;}
       }
    
    //**************************************************************************************************************************
-
    
    // initial velocity calculation  
       Double_t  ekin = e0;			 // kinetic energy
@@ -604,7 +609,6 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
 		    
    // initialize the range of the particle (total distance traveled)
       Double_t range=0.0;
-
 
    // define initial conditions
       Double_t x = x0MC;
@@ -614,14 +618,12 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       Double_t y_buff = y;
       Double_t z_buff = z;
 
-
    // Transforming initial position from pad plane to lab frame 
       TVector3 PosIniCmm = TransformIniPos(x,y,z); //Arguments in cm
       x = PosIniCmm.X();
       y = PosIniCmm.Y();
       z = PosIniCmm.Z();
       Double_t zmin_trans = z;
-
 
       ///////////////////////////////////////////////////////////////
       // For testing purposes!!!
@@ -632,7 +634,6 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       // std::cout<<" Xt "<<x<<" Yt "<<y<<" Zt "<<z<<std::endl;
       ///////////////////////////////////////////////////////////////
 
-   
    // storing initial conditions for x, y, and z
       Double_t  x0 = x;
       Double_t  y0 = y;
@@ -776,7 +777,7 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
             if(fEloss_func_array.size()>0){
             std::function<Double_t(Double_t,std::vector<Double_t>&)> ELossFunc = fEloss_func_array.at(0);
             sloss = ELossFunc(ekin,fELossPar_array[0]); // Energy Loss calculation dE/dX
-            }else std::cout<<cYELLOW<<" ATMCQMinimization::QMCsim - Warning! No energy loss function found."<<cNORMAL<<std::endl;
+            }else{std::cout<<cYELLOW<<" ATMCQMinimization::QMCsim - Warning! No energy loss function found."<<cNORMAL<<std::endl;}
 
             Double_t c0;
 
@@ -804,9 +805,8 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
          // slowing down by energy loss
             Double_t vcin = sqrt(TMath::Power(dxdt,2)+TMath::Power(dydt,2)+TMath::Power(dzdt,2)); // !v in cm/ns
             Double_t beta = vcin/29.979; // !v/c
-         // ecinsm=mev_m/2.*(beta)**2*1./sqrt(1.-beta**2) !relativistic
-            Double_t ekin0 = nucleons*mev_m*0.5*TMath::Power(beta,2); // !nonrelativistic
-
+         // ecinsm=mev_m/2.*(beta)**2*1./sqrt(1.-beta**2) relativistic
+            Double_t ekin0 = nucleons*mev_m*0.5*TMath::Power(beta,2); // nonrelativistic
 
 	 // updating kinetic energy and calculating velocity ratio v0/v 	
             sloss = sloss*dens*drange;               // energy loss with density and step
@@ -919,7 +919,6 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
                      // nota bene: we do not for the moment calculate the longitudinal straggling because only center of gravity used
                         double Q_str = Qpad[iterd]/32.;
 
-
                         Int_t pBin =  0;
 
                         if(padplane){
@@ -931,7 +930,7 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
                      // calculate center of gravity for z
 
                         if(pBin>0 && pBin<npadtotal){
-                            Qsim[pBin] += Q_str;              // charge in pad
+                            Qsim[pBin]  += Q_str;             // charge in pad
                             zsimq[pBin] += Q_str*zpad[iterd]; // not yet normalized
                         } 
 
@@ -967,15 +966,12 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
                 Float_t xcgrav = (PadCoord[i][0][0] + PadCoord[i][1][0] + PadCoord[i][2][0])/3.; // x center of gravity of the pad
                 Float_t ycgrav = (PadCoord[i][0][1] + PadCoord[i][1][1] + PadCoord[i][2][1])/3.; // y center of gravity of the pad
                 ivalidsim++;
-                //double help;
-                //help = zsimq[i];
                 zsimq[i] = qsimnorm*zsimq[i]/Qsim[i]; // normalized position cuidad norm
                 xiter.push_back(xcgrav);
                 yiter.push_back(ycgrav);
                 ziter.push_back(zsimq[i]);
 
                 qiter.push_back(Qsim[i]/qsimnorm);
-
 
                 Int_t iplot= 10*sqrt((Qsim[i])/2000.);
 
