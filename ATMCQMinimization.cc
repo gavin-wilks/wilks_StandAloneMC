@@ -8,10 +8,10 @@ ATMCQMinimization::ATMCQMinimization()
   fThetaMin=0.0;
   fEnerMin=0.0;
   fBrhoMin=0.0;
-  fBMin=0.0;
+  fBMin=2.0; // [T]
   fPhiMin=0.0;
   fTiltAng=0.0;
-  fDensMin=0.0;
+  fDensMin=0.1979; // [mg/cm^3]
   fVertexEner=0.0;
 
   FairLogger *fLogger=FairLogger::GetLogger();
@@ -251,8 +251,8 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
             Double_t ymax    = 0.0;
             Double_t e0sm    = 0.0;
             Double_t mev_m   = 931.49432;  // MeV per amu
-            Double_t Bmin    = B;
-            Double_t chi2min = 1E10; //starting chi-squared value
+            //Double_t Bmin    = 2.; // [T] // hardcoded
+            Double_t chi2min = 1E10; // starting chi-squared value
             //////////////////////////////////////////
 
 
@@ -272,27 +272,13 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
             Double_t theta0=parameter[6];
           */
 
-
-            /////////// Initial parameters///////////////
-            Double_t xmin;
-            Double_t ymin;
-            Double_t zmin;  // Micromegas origin at 1000 mm of the entrance
-            Double_t TBmin; // Absolute TB to compare between exp and sim
-            Double_t phi0;
-            Double_t bro;   // [T*m] 
-            Double_t theta0;
-            ////////////////////////////////////////////
-
-            double x0MC = xmin; // mm
-            double y0MC = ymin;
-            double z0MC = zmin;
-            double thetaMC = theta0; //radians
-            double phiMC = phi0;
-            double dens = 0.0738; // value from Josh 0.06363*18./20. // gas density
-            double romin;
-            double Bminv;  // B after MC variation
-            double densv;  // gas density after MC variation
-            double rominv; // magnetic radius after MC variation
+            double x0MC=0.;// mm
+            double y0MC=0.;
+            double z0MC=0.;
+            double thetaMC=0.; //radians
+            double phiMC=0.;
+            //double dens = 0.1979; // gas density [mg/cm^3]
+            double romin=0.;
 
             double xpad[10240]={0};   // these are the partial integral results in small steps
             double ypad[10240]={0};
@@ -312,6 +298,8 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
             double phiMCv = phiMC;
             double rangeMCv = rangeMC;  //simulation of track values for MC variation
             double thetaMCv = thetaMC;
+            double rominv=0.;// magnetic radius after MC variation
+
 	    double sigmaq = 0.2; // defined as the fraction of sum Qsim+Qtrack
             double sigmaz = 4.0; // defined as deviation of the center of gravity in mm modified from 5.4 on june 10 wm
             
@@ -323,12 +311,12 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
 
 
 	    /********************** MC Initialization ********************************/
-              MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv); 
+              MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, rominv); 
 
               std::cout<<std::endl;
               std::cout<<cGREEN<<" X : "<<x0MC<<" cm  - Y : "<<y0MC<<" cm - Z : "<<z0MC<<" cm "<<std::endl;
-              std::cout<<" Brho : "<<(Bmin*romin)<<" Tm "<<std::endl;
-              std::cout<<" Magnetic field : "<<Bmin<<" T "<<std::endl;
+              std::cout<<" Brho : "<<(fBMin*romin)<<" Tm "<<std::endl;
+              std::cout<<" Magnetic field : "<<fBMin<<" T "<<std::endl;
               std::cout<<" Radius of curvature : "<<parameter[5]<<" mm "<<std::endl;
               std::cout<<" Scattering Angle : "<<thetaMC*180.0/TMath::Pi()<<" deg "<<std::endl;
               std::cout<<" Azimutal Angle : "<<phiMC*180.0/TMath::Pi()<<" deg "<<std::endl;
@@ -357,16 +345,16 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
                     MCmode=2;
 
                  // for MC variation with same starting value as before
-                    MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv); 
+                    MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, rominv); 
 
-                    QMCsim(parameter, Qsim, zsimq, QMCtotal, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv, e0sm, PadCoord, fPadPlane);
+                    QMCsim(parameter, Qsim, zsimq, QMCtotal, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, rominv, e0sm, PadCoord, fPadPlane);
                    //std::cout<<cRED<<" After QMCsim x "<<x0MCv<<" y "<< y0MCv<< " z "<< z0MCv<<" theta "<< thetaMCv<<" phi "<< phiMCv<<" B " <<Bminv<<" dens "<< densv<< " e0sm "<<e0sm<<" ro "<<rominv<<cNORMAL;
                     Chi2MC(Qtrack,ztrackq,Qtracktotal,Qsim,zsimq,QMCtotal,CHi2fit,sigmaq,sigmaz); // Chi2 to compare track and MC
 
                     if (CHi2fit<Chimin){
                        Chimin=CHi2fit;
                        MCmode=3;
-                       MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, Bminv, densv, rominv);
+                       MCvar(parameter, MCmode, iconvar, x0MC, y0MC, z0MC, thetaMC, phiMC, romin, x0MCv, y0MCv, z0MCv, thetaMCv, phiMCv, rominv);
                     }
                 } // iMC loop
             } // iconvar loop
@@ -375,13 +363,13 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
 
             // fPadPlane->Draw("zcol");
 
-            QMCsim(parameter, Qsim, zsimq, QMCtotal, x0MC, y0MC, z0MC, thetaMC, phiMC, Bmin, dens, romin, e0sm, PadCoord, fPadPlane); // simulation with Chimin parameters
+            QMCsim(parameter, Qsim, zsimq, QMCtotal, x0MC, y0MC, z0MC, thetaMC, phiMC, romin, e0sm, PadCoord, fPadPlane); // simulation with Chimin parameters
 
             FitParameters.sThetaMin = thetaMC;
             FitParameters.sEnerMin = e0sm;
             FitParameters.sPosMin.SetXYZ(x0MC,y0MC,z0MC);
-            FitParameters.sBrhoMin = Bmin*romin;
-            FitParameters.sBMin = Bmin;
+            FitParameters.sBrhoMin = fBMin*romin;
+            FitParameters.sBMin = fBMin;
             FitParameters.sPhiMin = phiMC;
 
             //std::cout<<cRED<<" final fit x "<<x0MC <<" y "<< y0MC << " z "<< z0MC <<" theta "<< thetaMC <<" phi "<< phiMC <<" B " <<Bmin <<" dens "<< dens <<" e0sm "<<e0sm<<" ro "<<romin <<cNORMAL<<std::endl;
@@ -396,7 +384,7 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
             std::cout<<cYELLOW<<" Minimization result : "<<std::endl;
             std::cout<<" Scattering Angle : "<<thetaMC*180.0/TMath::Pi()<<std::endl;
             std::cout<<" Azimutal angle : "<<phiMC*180.0/TMath::Pi()<<std::endl;
-            std::cout<<" B : "<<Bmin<<std::endl;
+            std::cout<<" B : "<<fBMin<<std::endl;
             std::cout<<" Brho : "<<FitParameters.sBrhoMin<<std::endl;
             std::cout<<" Energy : "<<e0sm<<std::endl;
             std::cout<<" Vertex Position - X : "<<x0MC<<" - Y : "<<y0MC<<" - Z : "<<z0MC<<std::endl;
@@ -413,8 +401,8 @@ Bool_t ATMCQMinimization::MinimizeOptMapAmp(Double_t* parameter, ATEvent *event,
 } // END OF MinimizeOptMapAmp
 
 void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, double & x0MC, double & y0MC, double & z0MC, double & thetaMC, 
-			       double & phiMC, double & Bmin, double & dens, double & romin, double & x0MCv, double & y0MCv, double & z0MCv, 
-			       double & thetaMCv, double & phiMCv, double & Bminv, double & densv, double & rominv){
+			       double & phiMC, double & romin, double & x0MCv, double & y0MCv, double & z0MCv, 
+			       double & thetaMCv, double & phiMCv, double & rominv){
 
 	/*   
         parameter[0] = initial x position
@@ -442,7 +430,13 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
 
                 thetaMC = parameter[6];
                 romin = parameter[5];
-
+		
+		x0MC = 0.;
+		y0MC =0.;
+		z0MC=0.;
+		phiMC = 0.; 
+		thetaMC = 0.;
+		romin = 1.0;
                 //Double_t bro=parameter[5]*Bmin/1000.0;// !Tm*/
 
                 //Double_t theta0=parameter[6];
@@ -467,9 +461,6 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
                 double step4 = fStep_par[3]*factstep; // x0 [cm]
                 double step5 = fStep_par[4]*factstep; // y0 [cm] 
                 double step6 = fStep_par[5]*factstep; // z0 [cm]
-                double step7 = fStep_par[6]*factstep; // B
-                double step8 = fStep_par[7]*factstep; // Density
-                double step9 = fStep_par[8]*factstep; // to be used somewhere
 
                 thetaMCv = thetaMC + step1*(0.5-gRandom->Rndm())*0.01745;
                 phiMCv = phiMC + step2*(0.5-gRandom->Rndm())*0.01745;
@@ -477,8 +468,6 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
                 x0MCv = x0MC + step4*(0.5-gRandom->Rndm());
                 y0MCv = y0MC + step5*(0.5-gRandom->Rndm());
                 z0MCv = z0MC + step6*(0.5-gRandom->Rndm());       
-                Bminv = Bmin*(1.+step7*(0.5-gRandom->Rndm()));
-                densv = dens*(1.+ step8*(0.5-gRandom->Rndm()));
       
                 /*std::cout << "indside mc MCmode "<< MCmode << "  iconvar " <<iconvar<<std::endl;
                 std::cout << "indside mc MCmode " <<MCmode<< std::endl;
@@ -499,15 +488,13 @@ void ATMCQMinimization::MCvar( double* parameter, int & MCmode, int & iconvar, d
                 x0MC = x0MCv;
                 y0MC = y0MCv;
                 z0MC = z0MCv;                          
-                Bmin = Bminv;
-                dens = densv;
                 
             } // else if MCmode == 3
 
 } // END OF MCvar
 
 void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, double & QMCtotal, double x0MC, double y0MC, double z0MC, 
-                               double thetaMC, double phiMC, double Bmin, double dens, double romin, double & e0sm, multiarray PadCoord, TH2Poly *padplane) {
+                               double thetaMC, double phiMC, double romin, double & e0sm, multiarray PadCoord, TH2Poly *padplane) {
 
 
       std::vector<Double_t> xc;
@@ -573,11 +560,11 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       double tracksimthreshold=5; // threshold for simulated track in number of primary electrons
       double Qtotalsim=0.;        // total charge of the simulated track
 
-      double theta0   = thetaMC;                                 // Angle of particle track with respect to +z-axis     
-      double brotheta = Bmin*romin*1.e-7/TMath::Sin(theta0); // initial rigidity (B*rho) corrected for angle (theta) [Tm]
+      double theta0   = thetaMC;                             // Angle of particle track with respect to +z-axis     
+      double brotheta = fBMin*romin*1.e-7/TMath::Sin(theta0); // initial rigidity (B*rho) corrected for angle (theta) [Tm]
       double phi0     = phiMC;                               // Azimuthal angle for particle trajectory 
-      double _B       = Bmin;                                // Magnetic field in +z-direction [T]
-
+      double _B       = fBMin;                               // Magnetic field in +z-direction [T]
+      double dens     = fDensMin;
       Double_t e0 = 0.0; // initializing energy
    
    
@@ -988,9 +975,9 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       fThetaMin = theta0;
       fEnerMin  = e0sm;
       fBrhoMin  = romin;
-      fBMin     = _B;
+      //fBMin     = _B;
       fPhiMin   = phi0;
-      fDensMin  = dens;
+      //fDensMin  = dens;
       fPosTBmin = TBInter;
       fQmin     = qiter;
 
