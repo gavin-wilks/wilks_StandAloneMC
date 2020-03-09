@@ -24,6 +24,8 @@
 #include "TCanvas.h"
 #include "TStopwatch.h"
 #include "TH2Poly.h"
+#include "TGraph.h"
+#include "TApplication.h"
 
 #include "ATEvent.hh"
 #include "ATPad.hh"
@@ -38,9 +40,9 @@
 int target_thread_num = 4;
 
 
-Int_t main()
+Int_t main(int argc, char* argv[])
 {
-
+    TApplication app("app",&argc,argv);
     gSystem->Load("libATTPCReco.so");
     //omp_set_num_threads(target_thread_num);
 
@@ -71,16 +73,16 @@ Int_t main()
 
     Double_t* parameter = new Double_t[8];
 
-    //Let's shoot in the dark, shall we?
+    //Let's shoot in the dark
     //Parameter Guesses
-    parameter[0] = 0.;
-    parameter[1] = 0.;
-    parameter[2] = 0.;
-    parameter[3] = 0.;
-    parameter[4] = 0.;
-    parameter[5] = 1.;
-    parameter[6] = 4.0;
-    parameter[7] = 1.;
+    parameter[0] = 0.; //x
+    parameter[1] = 0.; //y
+    parameter[2] = 0.; //x
+    parameter[3] = 0.; //TB
+    parameter[4] = 0.; //phi
+    parameter[5] = 1.; //romin
+    parameter[6] = 0.; //theta
+    parameter[7] = 1.; //hitID
    
     std::vector<Double_t> par[10];  //de/dx - E
     std::vector<Double_t> parRtoE[10]; // E - R
@@ -108,6 +110,12 @@ Int_t main()
     auto fPadPlane = fAtMapPtr->GetATTPCPlane(); 
     auto fAtPadCoord = fAtMapPtr->GetPadCoordArr();
 
+    TCanvas * c1 = new TCanvas("c1", "c1",700,700);
+    c1->Divide(2,2);
+    TGraph * xy = new TGraph();
+    TGraph * xz = new TGraph();
+    TGraph * yz = new TGraph();
+
     nEvents = 100; //just show the first 100 events
       //#pragma omp parallel for ordered schedule(dynamic,1)
       for(Int_t i=0;i<nEvents;i++){
@@ -125,6 +133,16 @@ Int_t main()
               hitArray->size();
              
   	      std::cout << "Hits: " << hitArray->size() << std::endl;
+
+	      for(Int_t N=0;N<hitArray->size();N++){
+              //std::cout << "I am finally working" << std::endl;
+              ATHit hit = hitArray->at(N);
+              TVector3 pos = hit.GetPosition();
+              xy->SetPoint(N,pos.X(),pos.Y());
+	      xz->SetPoint(N,pos.X(),pos.Z());
+	      yz->SetPoint(N,pos.Y(),pos.Z());
+             }
+
               /*std::vector<ATHit*>* hitbuff = new std::vector<ATHit*>;
 
 
@@ -144,6 +162,32 @@ Int_t main()
 
   //#pragma omp parallel for ordered schedule(dynamic,1)
   //for(Int_t i=0;i<100000;i++)std::cout<<" Hello ATTPCer! "<<std::endl;
+  
+  c1->cd(1);
+  xy->SetMarkerSize(1);
+  xy->SetMarkerStyle(4);
+  xy->SetTitle("Y vs. X");
+  xy->GetXaxis()->SetTitle("X");   
+  xy->GetYaxis()->SetTitle("Y");
+  xy->Draw("AP");
+
+  c1->cd(2);
+  xz->SetMarkerSize(1);
+  xz->SetMarkerStyle(4);
+  xz->SetTitle("Z vs. X");
+  xz->GetXaxis()->SetTitle("X");   
+  xz->GetYaxis()->SetTitle("Z");
+  xz->Draw("AP");
+
+  c1->cd(3);
+  yz->SetMarkerSize(1);
+  yz->SetMarkerStyle(4);
+  yz->SetTitle("Z vs. Y");
+  yz->GetXaxis()->SetTitle("Y");   
+  yz->GetYaxis()->SetTitle("Z");
+  yz->Draw("AP");
+  
+//c1->Draw();
 
   timer.Stop();
   Double_t rtime = timer.RealTime();
@@ -151,6 +195,10 @@ Int_t main()
   std::cout << std::endl << std::endl;
   std::cout << "Real time " << rtime << " s, CPU time " << ctime << " s" << std::endl;
   std::cout << std::endl;
+
+  app.Run();
+
   return 0;
 
 }
+

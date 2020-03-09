@@ -565,7 +565,8 @@ void ATMCQMinimization::QMCsim(double* parameter, double* Qsim, double *zsimq, d
       double phi0     = phiMC;                               // Azimuthal angle for particle trajectory 
       double _B       = fBMin;                               // Magnetic field in +z-direction [T]
       double dens     = fDensMin;
-      Double_t e0 = 0.0; // initializing energy
+
+      Double_t e0     = 0.0; // initializing energy
    
    
    //**************************************************************************************************************************		     
